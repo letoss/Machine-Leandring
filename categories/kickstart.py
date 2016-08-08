@@ -1,67 +1,50 @@
 import json
 import sys
 
+
+def euclidean_distance(v1, v2):
+    """
+   Ex:
+       euclidean_distance([0, 0], [0, 1]) == 1
+       euclidean_distance([0, 0], [1, 1]) == 1.41...
+   """
+    if len(v1) != len(v2):
+        raise ValueError("Vectors have different dimension")
+    accum = 0.0
+    for x1, x2 in zip(v1, v2):
+        accum += (x1 - x2) ** 2
+    return accum ** 0.5
+
+
 def build_prediction(train, test):
     """
     Edit here. Should return one prediction for each element in test.
-    """    
-    knowlege = {}
-    for x in train:
-        category = x.get('top_level_category')
-        price = x.get('price')
-        seller_id = x.get('seller_id')
-
-        knowlege[seller_id] = knowlege.get(seller_id, {})
-        
-        old_price = knowlege[seller_id].get(category, price)
-        
-        knowlege[seller_id][category] = old_price + price / 2
-
-    resueltados = []
-    for x in test:
-        price = x.get('price')
-        seller_id = x.get('seller_id')
-        categories = knowlege.get(seller_id, {'MLM1384': 100})
-        best_price = 999999999999
-        best_category = None
-        for cat, i in categories.iteritems():
-            result = abs(price - i)
-            if result < best_price:
-                best_price = result
-                best_category = cat
-        resueltados.append(best_category)
-
-    return resueltados
-
-def build_prediction2(train, test):
     """
-    Edit here. Should return one prediction for each element in test.
-    """
-    knowlege = {}
-    for x in train:
-        category = x.get('top_level_category')
-        price = x.get('price')
-        
-        if category not in knowlege:
-            knowlege[category] = price
-        else:
-            knowlege[category] = (price + knowlege[category]) / 2
-    
-    resueltados = []
-    for x in test:
-        price = x.get('price')
-        best_price = 999999999999
-        best_category = None
-        for category, i in knowlege.iteritems():
-            result = abs(price - i)
-            if result < best_price:
-                best_price = result
-                best_category = category
-	        resueltados.append(best_category)
-    import ipdb; ipdb.set_trace() 
+    def descriptor(items):
+        return [[item.get('seller_id'), item.get('price')] for item in items]
+
+    def target(items):
+        return [x.get('top_level_category') for x in items]
+
+    items_description = descriptor(train)
+    items_target = target(train)
+
+    test_description = descriptor(test)
+
+    output = []
+    for td in test_description:
+        best_distance = 9999999999
+        best_index = 0
+        for i, id in enumerate(items_description):
+            result = euclidean_distance(td, id)
+            if result < best_distance:
+                best_index = i
+                best_distance = result
+        output.append(items_target[best_index])
 
     # return ['MLM1384' for x in test]
-    return resueltados
+    return output
+
 
 def load_data(path):
     return [json.loads(line) for line in open(path)]
