@@ -54,7 +54,6 @@ def build_prediction(train, test):
     total = sum(1 for real, prediction in zip(validation, output) if real.get('top_level_category') == prediction)
     print "({}/{})*100 = {}".format(total, len(validation), 100*(total/float(len(validation))))
 
-    # return ['MLM1384' for x in test]
     return output
 
 
