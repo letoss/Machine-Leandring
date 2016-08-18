@@ -1,5 +1,6 @@
 import json
 import sys
+import random
 
 
 def euclidean_distance(v1, v2):
@@ -16,10 +17,18 @@ def euclidean_distance(v1, v2):
     return accum ** 0.5
 
 
+def splitTrainTest(data):
+    # Randomizamos para evitar que esten ordenados los valores.
+    random.shuffle(train)
+    validation = len(data) / 10
+    return data[:validation], data[validation:]
+
+
 def build_prediction(train, test):
     """
     Edit here. Should return one prediction for each element in test.
     """
+    validation, train = splitTrainTest(train)
     def descriptor(items):
         return [[item.get('seller_id'), item.get('price')] for item in items]
 
@@ -29,7 +38,7 @@ def build_prediction(train, test):
     items_description = descriptor(train)
     items_target = target(train)
 
-    test_description = descriptor(test)
+    test_description = descriptor(validation)
 
     output = []
     for td in test_description:
@@ -42,7 +51,9 @@ def build_prediction(train, test):
                 best_distance = result
         output.append(items_target[best_index])
 
-    # return ['MLM1384' for x in test]
+    total = sum(1 for real, prediction in zip(validation, output) if real.get('top_level_category') == prediction)
+    print "({}/{})*100 = {}".format(total, len(validation), 100*(total/float(len(validation))))
+
     return output
 
 
