@@ -1,5 +1,5 @@
 import json
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.cross_validation import cross_val_score
 
 
@@ -7,11 +7,13 @@ def build_prediction(train, test):
     # Train
     from collections import Counter
     for_sale = Counter(x["seller_id"] for x in train)
-    vectorize = lambda datum: (datum["price"], for_sale[datum["seller_id"]])
+    vectorize = lambda datum: (datum["price"],
+                               for_sale[datum["seller_id"],
+                               datum["seller_power_status"]])
     X_train = [vectorize(x) for x in train]
     y_train = [x["top_level_category"] for x in train]
     X_test = [vectorize(x) for x in test]
-    c = DecisionTreeClassifier()
+    c = LogisticRegression()
 
     accuracy = cross_val_score(
         c,                   # The classifier
