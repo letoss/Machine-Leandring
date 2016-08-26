@@ -23,6 +23,14 @@ def build_prediction(train, test):
     cv = CountVectorizer()
     c = LogisticRegression()
 
+    # usar tfidf vectorizer con preprocessor=lambda x: x['title'].lower()
+    # Crear Price Vectorizer usando DirectTransformer
+
+    # make_pipeline(make_union(
+    #   TfidfVectorizer(),
+    #   Price()
+    # ), LogisticRegression())
+
     X_train_title = cv.fit_transform(X_train_title)
 
     accuracy = cross_val_score(
@@ -39,6 +47,21 @@ def build_prediction(train, test):
     c.fit(X_train_title, y_train)
     yhat = c.predict(X_test_title)
     return yhat
+
+
+class DirectTransformer:
+    """Utility for building class-like features from a single-point function, but that may need
+    some general configuration first (you usually override __init__ for that)
+    """
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return np.array([self.transform_one(x) for x in X]).reshape((-1, 1))
+
+    def transform_one(self, x):
+raise NotImplementedError
 
 
 def load_data(path):
