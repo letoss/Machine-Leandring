@@ -1,6 +1,9 @@
 import json
 from sklearn.linear_model import LogisticRegression
+import numpy as np
 from sklearn.cross_validation import cross_val_score
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.pipeline import Pipeline
 
 
 def build_prediction(train, test):
@@ -10,21 +13,31 @@ def build_prediction(train, test):
     vectorize = lambda datum: (datum["price"],
                                for_sale[datum["seller_id"],
                                datum["seller_power_status"]])
+
+    X_train_title = [item['title'] for item in train]
     X_train = [vectorize(x) for x in train]
     y_train = [x["top_level_category"] for x in train]
+    X_test_title = [item['title'] for item in test]
     X_test = [vectorize(x) for x in test]
+
+    cv = CountVectorizer()
     c = LogisticRegression()
+
+    X_train_title = cv.fit_transform(X_train_title)
 
     accuracy = cross_val_score(
         c,                   # The classifier
-        X_train, y_train,    # Train data, used for cross validation
+        X_train_title, y_train,    # Train data, used for cross validation
         scoring="accuracy",  # Evaluate the accuracy of the classifier
         cv=10,               # 10-fold cross validation
     ).mean()
     print "Estimated accuracy: %s" % (accuracy*100)
 
-    c.fit(X_train, y_train)
-    yhat = c.predict(X_test)
+    cv2 = CountVectorizer()
+    X_test_title = cv2.fit_transform(X_test_title)
+
+    c.fit(X_train_title, y_train)
+    yhat = c.predict(X_test_title)
     return yhat
 
 
