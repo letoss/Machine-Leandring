@@ -4,24 +4,57 @@ import sys
 from sklearn.linear_model import LogisticRegression
 import numpy as np
 from sklearn.cross_validation import cross_val_score
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.pipeline import make_pipeline, make_union
 
 PERSONS = {}
 
-def build_prediction(train, test):
-    p = make_pipeline(TfidfVectorizer(), LogisticRegression())
 
-    X_train_id  = [x for x, y in PERSONS.items()]
-    y_train = [x.get('age') for x in PERSONS]
+class DirectTransformer:
+    """Utility for building class-like features from a single-point function, but that may need
+    some general configuration first (you usually override __init__ for that)
+    """
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return np.array([self.transform_one(x) for x in X]).reshape((-1, 1))
+
+    def transform_one(self, x):
+        raise NotImplementedError
+
+
+class TransformGender(DirectTransformer):
+    def transform_one(self, x):
+        gender = x[1]['gender']
+        if gender.lower() == 'f':
+            return 1
+        else:
+            return -1
+
+
+def build_prediction():
+    p = make_pipeline(
+        make_union(
+            TfidfVectorizer(preprocessor=lambda x: x[1]['phone_brand'].lower()),
+            TfidfVectorizer(preprocessor=lambda x: x[1]['device_model'].lower()),
+            TransformGender()
+        ),
+        LogisticRegression()
+    )
+
+    x_train = [(x, y) for x, y in PERSONS.items()]
+    y_train = [y.get('age') for x, y in PERSONS.items()]
 
     accuracy = cross_val_score(
-        c,                   # The classifier
-        X_train_id, y_train,    # Train data, used for cross validation
+        p,                   # The classifier
+        x_train, y_train,    # Train data, used for cross validation
         scoring="accuracy",  # Evaluate the accuracy of the classifier
         cv=10,               # 10-fold cross validation
     ).mean()
     print "Estimated accuracy: %s" % (accuracy*100)
+
 
 def load_gender_age_train():
     print "loading gender age train"
@@ -33,6 +66,7 @@ def load_gender_age_train():
                 'age': row['age'],
                 'group': row['group']
             }
+
 
 def load_phone_brand_device_model():
     print "loading phone brand device model"
@@ -52,14 +86,5 @@ if __name__ == "__main__":
         exit('Incorrect parameters. Only outfile needs to be provided')
     load_gender_age_train()
     load_phone_brand_device_model()
-    import ipdb; ipdb.set_trace()
-    
-    prediction = build_prediction(train, test)
-    with open(sys.argv[1], "wt") as out:
-        for x, label in zip(test, prediction):
-            d = {
-                "id": x["id"],
-                "prediction": label
-            }
-            out.write(json.dumps(d))
-            out.write("\n")
+
+    prediction = build_prediction()
