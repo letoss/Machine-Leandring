@@ -8,6 +8,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import make_pipeline, make_union
 
 PERSONS = {}
+APP_IDS = {}
 
 
 class DirectTransformer:
@@ -81,10 +82,23 @@ def load_phone_brand_device_model():
                 })
 
 
+def load_app_events():
+    print "loading app events"
+    with open('app_events.csv') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            app_id = row.get('app_id')
+            exist = APP_IDS.get(app_id)
+            if not exist:
+                APP_IDS[app_id] = row.get('event_id')
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         exit('Incorrect parameters. Only outfile needs to be provided')
     load_gender_age_train()
     load_phone_brand_device_model()
+    load_app_events()
+    import ipdb; ipdb.set_trace()
 
     prediction = build_prediction()
