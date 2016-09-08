@@ -26,6 +26,31 @@ class DirectTransformer:
         raise NotImplementedError
 
 
+class OneHotTransformer:
+    def __init__(self, func):
+        self.f = func
+
+    def fit(self, X, y=None):
+        unseen = object()
+        seen = set()
+        for x in X:
+            seen.add(self.f(x))
+        self.seen = list(sorted(seen)) + [unseen]
+        return self
+
+    def transform(self, X):
+        return np.array([self.transform_one(x) for x in X])
+
+    def transform_one(self, x):
+        result = [0] * len(self.seen)
+        value = self.f(x)
+        if value in self.seen:
+            result[self.seen.index(value)] = 1
+        else:
+            result[-1] = 1
+        return result
+
+
 class TransformGender(DirectTransformer):
     def transform_one(self, x):
         gender = x[1]['gender']
@@ -38,8 +63,8 @@ class TransformGender(DirectTransformer):
 def build_prediction():
     p = make_pipeline(
         make_union(
-            TfidfVectorizer(preprocessor=lambda x: x[1]['phone_brand'].lower()),
-            TfidfVectorizer(preprocessor=lambda x: x[1]['device_model'].lower()),
+            OneHotTransformer(lambda x: x[1]['phone_brand'].lower()),
+            OneHotTransformer(lambda x: x[1]['device_model'].lower()),
             TransformGender()
         ),
         LogisticRegression()
@@ -99,6 +124,4 @@ if __name__ == "__main__":
     load_gender_age_train()
     load_phone_brand_device_model()
     load_app_events()
-    import ipdb; ipdb.set_trace()
-
     prediction = build_prediction()
