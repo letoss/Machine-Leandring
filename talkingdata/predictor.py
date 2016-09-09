@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.cross_validation import cross_val_score
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import make_pipeline, make_union
+from sklearn.ensemble import GradientBoostingClassifier
 
 PERSONS = {}
 PERSONS_TESTS = {}
@@ -58,18 +59,19 @@ def build_prediction():
             OneHotTransformer(lambda x: x[1]['phone_brand'].lower()),
             OneHotTransformer(lambda x: x[1]['device_model'].lower())
         ),
-        LogisticRegression()
+        GradientBoostingClassifier()
     )
 
     x_train = [(x, y) for x, y in PERSONS.items()]
     x_test = [(x, y) for x, y in PERSONS_TESTS.items()]
-    y_train_age = [y.get('age') for x, y in PERSONS.items()]
+    y_train_age = [y.get('group') for x, y in PERSONS.items()]
 
     print "fit age predictor"
     p_age.fit(x_train, y_train_age)
     print "predicting age"
-    age_prediction = p_age.predict(x_test)
-
+    classes = p_age.classes_
+    age_prediction = p_age.predict_proba(x_test)
+    return classes, age_prediction
     # accuracy_age = cross_val_score(
     #     p_age,                   # The classifier
     #     x_train, y_train_age,    # Train data, used for cross validation
@@ -77,24 +79,6 @@ def build_prediction():
     #     cv=10,                   # 10-fold cross validation
     # ).mean()
     # print "Estimated accuracy age: %s" % (accuracy_age*100)
-
-    p_gender = make_pipeline(
-        make_union(
-            OneHotTransformer(lambda x: x[1]['phone_brand'].lower()),
-            OneHotTransformer(lambda x: x[1]['device_model'].lower()),
-        ),
-        LogisticRegression()
-    )
-
-    vectorizer = lambda x: 1 if x.lower() == 'm' else 0
-    y_train_gender = [vectorizer(y.get('gender')) for x, y in PERSONS.items()]
-    # accuracy_gender = cross_val_score(
-    #     p_gender,                   # The classifier
-    #     x_train, y_train_gender,    # Train data, used for cross validation
-    #     scoring="accuracy",         # Evaluate the accuracy of the classifier
-    #     cv=10,                      # 10-fold cross validation
-    # ).mean()
-    # print "Estimated accuracy gender: %s" % (accuracy_gender*100)
 
 
 def load_gender_age_train():
@@ -147,11 +131,21 @@ def load_app_events():
                 APP_IDS[app_id] = row.get('event_id')
 
 
+def create_csv(titles, data):
+    with open('submit.csv', 'wb') as csvfile:
+        spamwriter = csv.writer(csvfile)
+        row = ['device_id'] + [cat for cat in titles]
+        spamwriter.writerow(row)
+        for row in zip(PERSONS_TESTS.keys(), data.tolist()):
+            list_prob = row[1][:]
+            list_prob.insert(0, row[0])
+            spamwriter.writerow(list_prob)
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        exit('Incorrect parameters. Only outfile needs to be provided')
     load_gender_age_train()
     # load_app_events()
     load_gender_age_test()
     load_phone_brand_device_model()
-    prediction = build_prediction()
+    classes, prediction = build_prediction()
+    create_csv(classes, prediction)
