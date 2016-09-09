@@ -8,6 +8,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import make_pipeline, make_union
 
 PERSONS = {}
+PERSONS_TESTS = {}
 APP_IDS = {}
 
 
@@ -51,35 +52,49 @@ class OneHotTransformer:
         return result
 
 
-class TransformGender(DirectTransformer):
-    def transform_one(self, x):
-        gender = x[1]['gender']
-        if gender.lower() == 'f':
-            return 1
-        else:
-            return -1
-
-
 def build_prediction():
-    p = make_pipeline(
+    p_age = make_pipeline(
         make_union(
             OneHotTransformer(lambda x: x[1]['phone_brand'].lower()),
-            OneHotTransformer(lambda x: x[1]['device_model'].lower()),
-            TransformGender()
+            OneHotTransformer(lambda x: x[1]['device_model'].lower())
         ),
         LogisticRegression()
     )
 
     x_train = [(x, y) for x, y in PERSONS.items()]
-    y_train = [y.get('age') for x, y in PERSONS.items()]
+    x_test = [(x, y) for x, y in PERSONS_TESTS.items()]
+    y_train_age = [y.get('age') for x, y in PERSONS.items()]
 
-    accuracy = cross_val_score(
-        p,                   # The classifier
-        x_train, y_train,    # Train data, used for cross validation
-        scoring="accuracy",  # Evaluate the accuracy of the classifier
-        cv=10,               # 10-fold cross validation
-    ).mean()
-    print "Estimated accuracy: %s" % (accuracy*100)
+    print "fit age predictor"
+    p_age.fit(x_train, y_train_age)
+    print "predicting age"
+    age_prediction = p_age.predict(x_test)
+
+    # accuracy_age = cross_val_score(
+    #     p_age,                   # The classifier
+    #     x_train, y_train_age,    # Train data, used for cross validation
+    #     scoring="accuracy",      # Evaluate the accuracy of the classifier
+    #     cv=10,                   # 10-fold cross validation
+    # ).mean()
+    # print "Estimated accuracy age: %s" % (accuracy_age*100)
+
+    p_gender = make_pipeline(
+        make_union(
+            OneHotTransformer(lambda x: x[1]['phone_brand'].lower()),
+            OneHotTransformer(lambda x: x[1]['device_model'].lower()),
+        ),
+        LogisticRegression()
+    )
+
+    vectorizer = lambda x: 1 if x.lower() == 'm' else 0
+    y_train_gender = [vectorizer(y.get('gender')) for x, y in PERSONS.items()]
+    # accuracy_gender = cross_val_score(
+    #     p_gender,                   # The classifier
+    #     x_train, y_train_gender,    # Train data, used for cross validation
+    #     scoring="accuracy",         # Evaluate the accuracy of the classifier
+    #     cv=10,                      # 10-fold cross validation
+    # ).mean()
+    # print "Estimated accuracy gender: %s" % (accuracy_gender*100)
 
 
 def load_gender_age_train():
@@ -94,6 +109,14 @@ def load_gender_age_train():
             }
 
 
+def load_gender_age_test():
+    print "loading gender age test"
+    with open('gender_age_test.csv') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            PERSONS_TESTS[row['device_id']] = {}
+
+
 def load_phone_brand_device_model():
     print "loading phone brand device model"
     with open('phone_brand_device_model.csv') as csvfile:
@@ -105,6 +128,12 @@ def load_phone_brand_device_model():
                     'phone_brand': row['phone_brand'],
                     'device_model': row['device_model'],
                 })
+            person_test = PERSONS_TESTS.get(row['device_id'])
+            if person_test is not None:
+                PERSONS_TESTS[row['device_id']] = {
+                    'phone_brand': row['phone_brand'],
+                    'device_model': row['device_model'],
+                }
 
 
 def load_app_events():
@@ -122,6 +151,7 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         exit('Incorrect parameters. Only outfile needs to be provided')
     load_gender_age_train()
+    # load_app_events()
+    load_gender_age_test()
     load_phone_brand_device_model()
-    load_app_events()
     prediction = build_prediction()
