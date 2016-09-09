@@ -53,6 +53,17 @@ class OneHotTransformer:
         return result
 
 
+class Densifier:
+    def fit(self, X, y=None):
+        return self
+
+    def fit_transform(self, X, y=None):
+        return X
+
+    def transform(self, X):
+        return X.toarray()
+
+
 def build_prediction():
     p_age = make_pipeline(
         make_union(
