@@ -28,6 +28,9 @@ class DirectTransformer:
         raise NotImplementedError
 
 
+
+
+
 class OneHotTransformer:
     def __init__(self, func):
         self.f = func
@@ -68,14 +71,15 @@ def build_prediction():
     p_age = make_pipeline(
         make_union(
             OneHotTransformer(lambda x: x[1]['phone_brand'].lower()),
-            OneHotTransformer(lambda x: x[1]['device_model'].lower())
+            OneHotTransformer(lambda x: x[1]['device_model'].lower()),
+            TfidfVectorizer(preprocessor=lambda x: ' '.join(x[1]['app_id']))
         ),
-        GradientBoostingClassifier()
+        LogisticRegression()
     )
 
     x_train = [(x, y) for x, y in PERSONS.items()]
     x_test = [(x, y) for x, y in PERSONS_TESTS.items()]
-    y_train_age = [y.get('group') for x, y in PERSONS.items()]
+    y_train_age = [y.get('group') for y in PERSONS.values()]
 
     print "fit age predictor"
     p_age.fit(x_train, y_train_age)
@@ -83,13 +87,6 @@ def build_prediction():
     classes = p_age.classes_
     age_prediction = p_age.predict_proba(x_test)
     return classes, age_prediction
-    # accuracy_age = cross_val_score(
-    #     p_age,                   # The classifier
-    #     x_train, y_train_age,    # Train data, used for cross validation
-    #     scoring="accuracy",      # Evaluate the accuracy of the classifier
-    #     cv=10,                   # 10-fold cross validation
-    # ).mean()
-    # print "Estimated accuracy age: %s" % (accuracy_age*100)
 
 
 def load_gender_age_train():
@@ -122,12 +119,14 @@ def load_phone_brand_device_model():
                 person.update({
                     'phone_brand': row['phone_brand'],
                     'device_model': row['device_model'],
+                    'app_id': ['empty_app']
                 })
             person_test = PERSONS_TESTS.get(row['device_id'])
             if person_test is not None:
                 PERSONS_TESTS[row['device_id']] = {
                     'phone_brand': row['phone_brand'],
                     'device_model': row['device_model'],
+                    'app_id': ['empty_app']
                 }
 
 
@@ -136,10 +135,29 @@ def load_app_events():
     with open('app_events.csv') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
-            app_id = row.get('app_id')
-            exist = APP_IDS.get(app_id)
+            event_id = row.get('event_id')
+            exist = APP_IDS.get(event_id)
             if not exist:
-                APP_IDS[app_id] = row.get('event_id')
+                APP_IDS[event_id] = [row.get('app_id')]
+            else:
+                APP_IDS[event_id].append(row.get('app_id'))
+
+
+def load_events():
+    print "loading events"
+    with open('events.csv') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            person = PERSONS.get(row.get('device_id'))
+            if person:
+                person.update({
+                    "app_id": APP_IDS.get(row['event_id'], [])
+                })
+            person_test = PERSONS_TESTS.get(row.get('device_id'))
+            if person_test:
+                person_test.update({
+                    "app_id": APP_IDS.get(row['event_id'], [])
+                })
 
 
 def create_csv(titles, data):
@@ -155,7 +173,8 @@ def create_csv(titles, data):
 
 if __name__ == "__main__":
     load_gender_age_train()
-    # load_app_events()
+    load_app_events()
+    load_events()
     load_gender_age_test()
     load_phone_brand_device_model()
     classes, prediction = build_prediction()
