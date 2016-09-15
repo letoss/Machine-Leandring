@@ -4,7 +4,7 @@ import sys
 from sklearn.linear_model import LogisticRegression
 import numpy as np
 from sklearn.cross_validation import cross_val_score
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import make_pipeline, make_union
 from sklearn.ensemble import GradientBoostingClassifier
 
@@ -69,7 +69,7 @@ def build_prediction():
         make_union(
             OneHotTransformer(lambda x: x[1]['phone_brand'].lower()),
             OneHotTransformer(lambda x: x[1]['device_model'].lower()),
-            CountVectorizer(preprocessor=lambda x: ' '.join(x[1]['app_id']))
+            TfidfVectorizer(preprocessor=lambda x: ' '.join(x[1]['app_id']))
         ),
         LogisticRegression()
     )
