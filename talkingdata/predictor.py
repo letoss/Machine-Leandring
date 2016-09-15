@@ -28,9 +28,6 @@ class DirectTransformer:
         raise NotImplementedError
 
 
-
-
-
 class OneHotTransformer:
     def __init__(self, func):
         self.f = func
@@ -95,9 +92,8 @@ def load_gender_age_train():
         reader = csv.DictReader(csvfile)
         for row in reader:
             PERSONS[row['device_id']] = {
-                'gender': row['gender'],
-                'age': row['age'],
-                'group': row['group']
+                'group': row['group'],
+                'app_id': ['emptyapp']
             }
 
 
@@ -106,7 +102,9 @@ def load_gender_age_test():
     with open('gender_age_test.csv') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
-            PERSONS_TESTS[row['device_id']] = {}
+            PERSONS_TESTS[row['device_id']] = {
+                'app_id': ['emptyapp']
+            }
 
 
 def load_phone_brand_device_model():
@@ -118,16 +116,14 @@ def load_phone_brand_device_model():
             if person:
                 person.update({
                     'phone_brand': row['phone_brand'],
-                    'device_model': row['device_model'],
-                    'app_id': ['empty_app']
+                    'device_model': row['device_model']
                 })
             person_test = PERSONS_TESTS.get(row['device_id'])
-            if person_test is not None:
-                PERSONS_TESTS[row['device_id']] = {
+            if person_test:
+                person_test.update({
                     'phone_brand': row['phone_brand'],
-                    'device_model': row['device_model'],
-                    'app_id': ['empty_app']
-                }
+                    'device_model': row['device_model']
+                })
 
 
 def load_app_events():
@@ -136,27 +132,34 @@ def load_app_events():
         reader = csv.DictReader(csvfile)
         for row in reader:
             event_id = row.get('event_id')
-            exist = APP_IDS.get(event_id)
-            if not exist:
-                APP_IDS[event_id] = [row.get('app_id')]
-            else:
+            if event_id in APP_IDS:
                 APP_IDS[event_id].append(row.get('app_id'))
+            else:
+                APP_IDS[event_id] = [row.get('app_id')]
 
 
 def load_events():
     print "loading events"
+
+    def update_app_id(person, apps):
+        if person.get('app_id') == ['emptyapp']:
+            return apps
+        else:
+            person.get('app_id').extend(apps)
+            return person.get('app_id')
+
     with open('events.csv') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
             person = PERSONS.get(row.get('device_id'))
             if person:
                 person.update({
-                    "app_id": APP_IDS.get(row['event_id'], [])
+                    "app_id": update_app_id(person, APP_IDS.get(row['event_id'], []))
                 })
             person_test = PERSONS_TESTS.get(row.get('device_id'))
             if person_test:
                 person_test.update({
-                    "app_id": APP_IDS.get(row['event_id'], [])
+                    "app_id": update_app_id(person_test, APP_IDS.get(row['event_id'], []))
                 })
 
 
@@ -173,9 +176,9 @@ def create_csv(titles, data):
 
 if __name__ == "__main__":
     load_gender_age_train()
-    load_app_events()
-    load_events()
     load_gender_age_test()
     load_phone_brand_device_model()
+    load_app_events()
+    load_events()
     classes, prediction = build_prediction()
     create_csv(classes, prediction)
